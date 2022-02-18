@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<title>My first three.js app</title>
+	<style>
+		body {
+			margin: 0;
+			overflow: hidden;
+		}
+		.content {
+	overflow: hidden;
+	z-index: 99;
+	position: relative;
+	background-color: #182C49;
+}
+	</style>
+
+</head>
+
+<body>
+	<div style="position: absolute;z-index:-1;width:100px;height:100px;overflow:hidden;top:0;opacity:0;">
+		<div id="capture" style="width: 1500px;height: 1500px;">
+		</div>
+	</div>
+	<script src="./jquery.min.js"></script>
+	<script src="./html2.js"></script>
+	<script type="module">
+		import * as THREE from '../build/three.module.js';
+		import { CSS2DObject } from './jsm/renderers/CSS2DRenderer.js';
+		import { CSS2DRenderer } from './jsm/renderers/CSS2DRenderer.js';
+		import { OrbitControls } from './jsm/controls/OrbitControls.js';
+		import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+		import { OBJLoader } from './jsm/loaders/OBJLoader.js';
+		import { PLYLoader } from './jsm/loaders/PLYLoader.js';
+		import { MTLLoader } from './jsm/loaders/MTLLoader.js';
+		import { distanceShow,distanceHide } from './distanceShow2.js';
+		// const modelName = '馨园'
+		const modelName = '知行楼'
+		let camera, labelRenderer, scene, controls, renderer, modelArr = [], modelPart = ["Mesh_312", "Mesh_309", "Mesh_306", "Mesh_321", "Mesh_318", "Mesh_315","Mesh_305"], edges,
+			info = [],postionArr = [
+				{
+					name:"居住区",
+					position:new THREE.Vector3( -3675.5700718683756,  932.06040413153, 555.7005335229611)
+				},
+				{
+					name: "油罐",
+					position: new THREE.Vector3( -2234.0315882122222,  1168.8807659177583,  -1061.5267638882654)
+				}
+			],sprite;
+		init();
+		render();
+		
+		function centerModel(model) {
+			let box3 = new THREE.Box3().expandByObject(model);
+			let center = box3.getCenter(new THREE.Vector3());
+			model.position.x = model.position.x - center.x;
+			model.position.y = model.position.y - center.y;
+			model.position.z = model.position.z - center.z;
+		}
+		function init() {
+
+			// 相机设置
+			camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000000);
+			camera.position.set(120000, 30000, 120000);
+
+			// 场景设置0
+			scene = new THREE.Scene();
+			scene.background = new THREE.Color(0xffffff);
+
+			// 辅助坐标系 参数250表示坐标系大小，可以根据场景大小去设置
+			// x轴是红色，y轴是绿色，z轴是蓝色
+			const axesHelper = new THREE.AxesHelper(25000);
+			scene.add(axesHelper)
+
+			// 光源设置
+			const directionalLight1 = new THREE.DirectionalLight(0xaaaaaa, 0.6);
+			directionalLight1.position.set(1, 0, 0);
+			scene.add(directionalLight1);
+
+			const directionalLight2 = new THREE.DirectionalLight(0xaaaaaa, 0.6);
+			directionalLight2.position.set(-1, 0, 0);
+			scene.add(directionalLight2);
+
+			const directionalLight3 = new THREE.DirectionalLight(0xaaaaaa, 0.6);
+			directionalLight3.position.set(0, 1, -1);
+			scene.add(directionalLight3);
+
+			const directionalLight4 = new THREE.DirectionalLight(0xaaaaaa, 0.6);
+			directionalLight4.position.set(0, -1, 1);
+			scene.add(directionalLight4);
+
+			const directionalLight5 = new THREE.DirectionalLight(0xaaaaaa, 0.1);
+			directionalLight5.position.set(0, 0, 1);
+			scene.add(directionalLight5);
+
+			const directionalLight6 = new THREE.DirectionalLight(0xaaaaaa, 0.1);
+			directionalLight6.position.set(0, 0, -1);
+			scene.add(directionalLight6);
+
+			// const light = new THREE.AmbientLight(0x404040); // soft white light
+			// scene.add(light);
+
+			// 渲染器
+			renderer = new THREE.WebGLRenderer();
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			document.body.appendChild(renderer.domElement);
+			labelRenderer = new CSS2DRenderer();
+			labelRenderer.setSize(window.innerWidth, window.innerHeight);
+			labelRenderer.domElement.style.position = 'absolute';
+			labelRenderer.domElement.style.top = 0;
+			document.body.appendChild(labelRenderer.domElement);
+
+			// 鼠标控制
+			controls = new OrbitControls(camera, labelRenderer.domElement);
+			// renderer.domElement.className = 'content'
+			// controls.maxPolarAngle=1.5
+			// controls.minPolarAngle=0.3
+			controls.update();
+			var mtlLoader = new MTLLoader();
+			mtlLoader.setPath('../models/');
+			mtlLoader.load(`${modelName}.mtl`, function(materials) {
+			
+				materials.preload();
+			
+				var objLoader = new OBJLoader();
+				objLoader.setMaterials(materials);
+				objLoader.setPath('../models/');
+				objLoader.load(`${modelName}.obj`, function(gltf) {
+					console.log(gltf)
+                scene.add(gltf);
+				let model = gltf
+				genModelArr(model)
+				let modelsPosition= []
+				model.traverse(node => {
+					if ('xGroup' != node.constructor.name && ('Group' === node.constructor.name || 'Object3D' === node.constructor.name)) {
+						if(modelsPosition[node.uuid]){
+							let initPosition = modelsPosition[node.uuid].position;
+							if (!initPosition.equals(node.position)) {
+								node.position.x = initPosition.x;
+								node.position.y = initPosition.y;
+								node.position.z = initPosition.z;
+							}
+						}
+					}
+				});
+				// centerModel(model)
+				var show = false
+				window.addEventListener('click', async function (event) {
+					let intersects = getIntersects(event, modelArr);
+					console.log(intersects.point)
+					show = !show
+					if(show){
+						distanceShow(model,modelName)
+					}else{
+						distanceHide(model)
+					}
+				});
+				var time = 3000
+				let wendu=1
+				// setInterval(function(){
+				// 	$('#capture').html('')
+				// 	wendu++
+				// 	initInfo(model,wendu)
+				// },time)
+				initInfo(model,wendu)
+				render();
+				});
+			
+			});
+		}
+		function genModelArr(model) {
+			if (!modelArr || modelArr.length <= 0) {
+				modelArr = [];
+				var model = model;
+				// console.log(model)
+				model.traverse(function (child) {
+					if (child.isMesh) {
+						modelArr.push(child);
+						child.originColor = child.material
+					}
+				});
+			}
+		}
+		async function initInfo(model,wendu2) {
+			postionArr.forEach(async (e,ind) => {
+				console.log(e)
+					
+			})
+		}
+		function getIntersects(event, group) {
+			// console.log(vueInstance)
+			var mouse = new THREE.Vector2();
+			let left = renderer.domElement.getBoundingClientRect().left;
+			let top = renderer.domElement.getBoundingClientRect().top;
+			let w = renderer.domElement.clientWidth;
+			let h = renderer.domElement.clientHeight;
+			mouse.x = ((event.clientX - left) / w) * 2 - 1;
+			mouse.y = -((event.clientY - top) / h) * 2 + 1;
+			/* 从相机发出一条射线经过鼠标点击的位置 */
+			var raycaster = new THREE.Raycaster();
+			raycaster.setFromCamera(mouse, camera);
+			/* 计算相机到射线的对象，可能有多个对象，返回一个数组，按照距离相机远近排列 */
+			var intersects = raycaster.intersectObjects(group);
+			/* 返回向量 */
+			if (intersects.length > 0) {
+				return intersects[0];
+			}
+			return intersects;
+		}
+		function render() {
+			renderer.clear()
+			controls.update();
+			labelRenderer.render(scene, camera);
+			renderer.render(scene, camera)
+			requestAnimationFrame(render);
+		}
+	</script>
+</body>
+
+</html>

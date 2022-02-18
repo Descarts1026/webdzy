@@ -1,0 +1,4 @@
+threejs参考文档和外部文件：https://github.com/mrdoob/three.js/
+		            http://www.webgl3d.cn/
+
+opengl库：https://www.opengl.org//resources/libraries/glut/
